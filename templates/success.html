@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Success</title>
+    <style>
+        .excel-table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .excel-table th, .excel-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        .excel-table th {
+            padding-top: 12px;
+            padding-bottom: 12px;
+            text-align: left;
+            background-color: #4CAF50;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Data written to Excel successfully</h1>
+
+    <!-- Display the Excel data table -->
+    {{ excel_table | safe }}
+
+    <!-- Button to go back to the index page -->
+    <a href="{{ url_for('index') }}"><button>Home</button></a>
+</body>
+</html>

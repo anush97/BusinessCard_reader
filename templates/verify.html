@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verify Information</title>
+    <style>
+        textarea {
+            width: 100%; /* Make textarea take up 100% of the table cell width */
+            box-sizing: border-box; /* Ensures padding does not affect overall width */
+            height: 50px; /* Set a default height with enough space for text */
+            resize: vertical; /* Allows the user to resize the textarea vertically */
+            margin-bottom: 10px; /* Adds some space below each textarea */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Extracted Information</h1>
+    <form action="/write_excel" method="post">
+        <table>
+            <tr>
+                <th>Company Name</th>
+                <th>Person Name</th>
+                <th>Designation</th>
+                <th>Address</th>
+                <th>Email</th>
+                <th>Mobile no.</th>
+                <th>Website</th>
+                <th>Industry they deal in – Biscuits, Dairy, Beverages Etc</th>
+            </tr>
+            <tr>
+                {% for key in ['ORG', 'NAME', 'DES', 'ADD', 'EMAIL', 'PHONE', 'WEB'] %}
+                <td>
+                    <!-- Using textarea for all fields to provide more space -->
+                    <textarea name="{{ key }}">{{ info.get(key, '') }}</textarea>
+                </td>
+                {% endfor %}
+                <!-- Additional textarea for the 'Industry' field -->
+                <td>
+                    <textarea name="INDUSTRY">{{ info.get('INDUSTRY', '') }}</textarea>
+                </td>
+            </tr>
+        </table>
+        <input type="submit" value="Write to Excel">
+    </form>
+   
+     <!-- Add a Home button -->
+     <form action="{{ url_for('index') }}" method="get">
+        <button type="submit">Home</button>
+    </form>
+</body>
+</html>
