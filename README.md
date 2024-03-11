@@ -39,13 +39,8 @@ Navigate to `http://127.0.0.1:5000/` in your web browser to access the applicati
 - `uploads/`: Directory for temporarily storing uploaded images (created on the first run).
 - `verified_data.xlsx`: Excel file where verified information is stored (created after first verification).
 
-## Contributing
-
-Feel free to fork this repository and submit pull requests with improvements or report issues you encounter.
 
 ## License
 
 [MIT License](LICENSE)
-```
 
-Replace `<your-repo-link>` with the actual URL of your GitHub repository and `<your-project-directory>` with the name of the directory containing your project. Ensure all details match your project's structure and functionality.
