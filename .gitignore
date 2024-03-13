@@ -1,0 +1,14 @@
+# Environment variables file
+.env
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Private keys and configuration files
+*.pem
+*.key
+
+# Other common files to ignore
+.DS_Store
+Thumbs.db
