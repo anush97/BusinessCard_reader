@@ -1,5 +1,7 @@
 from flask import Flask, request, render_template, redirect, url_for
 import os
+import boto3
+from botocore.exceptions import NoCredentialsError
 import pytesseract
 from PIL import Image
 import spacy
@@ -7,6 +9,7 @@ import pandas as pd
 from werkzeug.utils import secure_filename
 from openpyxl import load_workbook
 from openpyxl import Workbook
+
 app = Flask(__name__)
 
 # Configuration
@@ -19,8 +22,42 @@ EXCEL_FILE = 'extracted_data.xlsx'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
+def download_model_from_s3():
+    s3_bucket_name = 'buscardmodel'  # S3 Bucket name
+    s3_model_key = 'model-last/'  # The key prefix for the model files in S3
+    local_model_dir = 'model-last'  # Local directory to store the model
+
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+        region_name=os.environ.get('AWS_DEFAULT_REGION')  # Using environment variable for AWS region
+    )
+
+    try:
+        # List all objects within the specified prefix
+        model_files = s3.list_objects(Bucket=s3_bucket_name, Prefix=s3_model_key)['Contents']
+        for file in model_files:
+            file_key = file['Key']
+            # Construct the local file path
+            local_file_path = os.path.join(local_model_dir, file_key.replace(s3_model_key, ''))
+            
+            # Ensure the directory exists
+            local_file_dir = os.path.dirname(local_file_path)
+            if not os.path.exists(local_file_dir):
+                os.makedirs(local_file_dir, exist_ok=True)
+
+            # Download the file
+            print(f"Downloading {file_key} to {local_file_path}")
+            s3.download_file(s3_bucket_name, file_key, local_file_path)
+    except NoCredentialsError:
+        print("AWS credentials not available")
+
+# Call the function to start the download when the app starts
+download_model_from_s3()
+
 # Load spaCy model
-nlp = spacy.load("old-output/model-last") 
+nlp = spacy.load(os.path.join('model-last'))
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -40,8 +77,6 @@ def upload_image():
         filename = secure_filename(image.filename)
         image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         image.save(image_path)
-
-        # Redirect to the extraction route, passing the filename as a query parameter
         return redirect(url_for('extract_info', filename=filename))
     else:
         return 'Invalid file type', 400
@@ -56,30 +91,23 @@ def extract_info():
     extracted_text = pytesseract.image_to_string(Image.open(image_path))
 
     doc = nlp(extracted_text)
-
-    # Organize entities into specific categories
     info = {'NAME': '', 'DES': '', 'ORG': '', 'PHONE': '', 'ADD': '', 'EMAIL': '', 'WEB': ''}
     for ent in doc.ents:
-        # Assume ent.label_ returns one of the predefined categories (NAME, DES, ORG, PHONE, ADD, EMAIL, WEB)
-        # Append if multiple values exist, else assign
         if info[ent.label_]:
-            info[ent.label_] += f", {ent.text}"  # Append with comma separation for multiple values
+            info[ent.label_] += f", {ent.text}"
         else:
             info[ent.label_] = ent.text
 
     return render_template('verify.html', info=info)
 
-
 @app.route('/write_excel', methods=['POST'])
 def write_to_excel():
-    # Headers as they appear in your Excel template
     headers = [
         'Company Name', 'Person Name', 'Designation', 
         'Address', 'Email', 'Mobile no.', 'Website', 
         'Industry (Biscuits, Dairy, Beverages Etc)'
     ]
-    
-    # Map form data to the correct headers
+
     form_to_header_mapping = {
         'ORG': 'Company Name', 
         'NAME': 'Person Name', 
@@ -89,37 +117,27 @@ def write_to_excel():
         'PHONE': 'Mobile no.', 
         'WEB': 'Website'
     }
-    
-    # Prepare info dictionary with blank for the 'Industry they deal in' field
+
     info = {header: '' for header in headers}
     for form_field, header in form_to_header_mapping.items():
         info[header] = request.form.get(form_field, '')
 
-    # Create a DataFrame with just the new info
-    df_new = pd.DataFrame([info.values()])  # We only need the values here for the new row
+    df_new = pd.DataFrame([info.values()])
 
     try:
-        # Attempt to load an existing workbook
         workbook = load_workbook(EXCEL_FILE)
         sheet = workbook.active
-        
-        
     except FileNotFoundError:
-        # If the Excel file doesn't exist, create a new workbook and add the headers
         workbook = Workbook()
         sheet = workbook.active
-        sheet.append(headers)  # Write the headers to the first row
+        sheet.append(headers)
 
-    # Get the last row in the existing Excel file and append the new data from the next row
     sheet.append(list(info.values()))
 
     try:
-
         workbook.save(EXCEL_FILE)
         df = pd.read_excel(EXCEL_FILE)
         excel_data_html = df.to_html(index=False, classes='excel-table')
-
-        # Render the success.html template, passing the table's HTML
         return render_template('success.html', excel_table=excel_data_html)
     except Exception as e:
         return redirect(url_for('index'))
